@@ -2,8 +2,7 @@ name: Deploy na GitHub Pages
 
 on:
   push:
-    # gałąź robocza jest tu tymczasowo, żeby podejrzeć aplikację przed scaleniem
-    branches: [main, claude/mind-notes-kolna-yw6moq]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
