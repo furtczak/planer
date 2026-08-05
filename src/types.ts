@@ -12,6 +12,8 @@ export type MapNode = {
   collapsed?: boolean
   /** Notatka doczepiona do węzła (Markdown). */
   note?: string
+  /** Zdjęcie węzła jako data URI - już zmniejszone, patrz lib/image.ts. */
+  image?: string
 }
 
 export type MindMap = {

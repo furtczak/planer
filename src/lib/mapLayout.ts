@@ -18,6 +18,10 @@ export const LEVEL_GAP = 62
 export const UNDERLINE_OFFSET = 13
 export const FONT_SIZE = 15
 export const ROOT_FONT_SIZE = 17
+/** Zdjęcie węzła: stały kadr nad tekstem. */
+export const IMAGE_WIDTH = 104
+export const IMAGE_HEIGHT = 78
+export const IMAGE_GAP = 7
 
 export type LaidOutNode = {
   node: MapNode
@@ -32,6 +36,10 @@ export type LaidOutNode = {
   isRoot: boolean
   childCount: number
   hasHiddenChildren: boolean
+  /** Wysokość pasa ze zdjęciem nad tekstem (0, gdy węzeł nie ma zdjęcia). */
+  imageBlock: number
+  /** Środek wiersza z tekstem - przesunięty w dół, gdy nad nim wisi zdjęcie. */
+  textY: number
 }
 
 export type Connector = {
@@ -128,6 +136,7 @@ type Measured = {
   node: MapNode
   width: number
   height: number
+  imageBlock: number
   children: Measured[]
   /** Wysokość całego poddrzewa - na jej podstawie ustawiamy pozycje w pionie. */
   span: number
@@ -136,10 +145,12 @@ type Measured = {
 
 function measureTree(nodes: MapNode[], node: MapNode, depth: number): Measured {
   const isRoot = node.parentId === null
-  const width = isRoot
+  const textOnlyWidth = isRoot
     ? textWidth(node.text, ROOT_FONT_SIZE, true) + ROOT_PADDING_X * 2
     : textWidth(node.text)
-  const height = isRoot ? ROOT_HEIGHT : NODE_HEIGHT
+  const imageBlock = node.image ? IMAGE_HEIGHT + IMAGE_GAP : 0
+  const width = node.image ? Math.max(textOnlyWidth, IMAGE_WIDTH) : textOnlyWidth
+  const height = (isRoot ? ROOT_HEIGHT : NODE_HEIGHT) + imageBlock
 
   const kids = node.collapsed ? [] : childrenOf(nodes, node.id)
   const children = kids.map((child) => measureTree(nodes, child, depth + 1))
@@ -153,6 +164,7 @@ function measureTree(nodes: MapNode[], node: MapNode, depth: number): Measured {
     node,
     width,
     height,
+    imageBlock,
     children,
     span: Math.max(height, childrenSpan),
     depth,
@@ -172,6 +184,8 @@ export function layoutMap(nodes: MapNode[]): Layout {
   const place = (item: Measured, x: number, centerY: number) => {
     const isRoot = item.depth === 0
     const allChildren = childrenOf(nodes, item.node.id)
+    // zdjęcie wisi nad tekstem, więc sam tekst schodzi o połowę tego pasa w dół
+    const textY = centerY + item.imageBlock / 2
     laidOut.push({
       node: item.node,
       x,
@@ -183,13 +197,15 @@ export function layoutMap(nodes: MapNode[]): Layout {
       isRoot,
       childCount: allChildren.length,
       hasHiddenChildren: Boolean(item.node.collapsed) && allChildren.length > 0,
+      imageBlock: item.imageBlock,
+      textY,
     })
 
     if (item.children.length === 0) return
 
     // punkt startowy gałęzi: prawa krawędź kafelka korzenia albo koniec podkreślenia
     const anchorX = x + item.width
-    const anchorY = isRoot ? centerY : centerY + UNDERLINE_OFFSET
+    const anchorY = isRoot ? textY : textY + UNDERLINE_OFFSET
     const childX = anchorX + LEVEL_GAP
 
     let cursor = centerY - item.children.reduce((s, c) => s + c.span, 0) / 2
@@ -199,7 +215,7 @@ export function layoutMap(nodes: MapNode[]): Layout {
       const childCenter = cursor + child.span / 2
       cursor += child.span + SIBLING_GAP
 
-      const underlineY = childCenter + UNDERLINE_OFFSET
+      const underlineY = childCenter + child.imageBlock / 2 + UNDERLINE_OFFSET
       const color = branchColor(nodes, child.node)
       const curve = Math.max(24, LEVEL_GAP * 0.62)
 

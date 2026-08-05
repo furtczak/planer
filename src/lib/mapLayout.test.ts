@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
+  IMAGE_GAP,
+  IMAGE_HEIGHT,
+  IMAGE_WIDTH,
+  NODE_HEIGHT,
   UNDERLINE_OFFSET,
   branchColor,
   fitViewBox,
@@ -82,6 +86,55 @@ describe('layoutMap', () => {
       expect(n.x).toBeGreaterThanOrEqual(layout.bounds.minX)
       expect(n.x + n.width).toBeLessThanOrEqual(layout.bounds.maxX)
     }
+  })
+})
+
+describe('węzeł ze zdjęciem', () => {
+  const PIXEL =
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+  const withImage: MapNode[] = [
+    { id: 'r', text: 'Temat', parentId: null },
+    { id: 'a', text: 'Bez zdjęcia', parentId: 'r', color: 'coral' },
+    { id: 'b', text: 'Ze zdjęciem', parentId: 'r', color: 'sky', image: PIXEL },
+  ]
+
+  it('rezerwuje pas na obraz nad tekstem', () => {
+    const layout = layoutMap(withImage)
+    const plain = layout.nodes.find((n) => n.node.id === 'a')!
+    const photo = layout.nodes.find((n) => n.node.id === 'b')!
+    expect(plain.imageBlock).toBe(0)
+    expect(photo.imageBlock).toBe(IMAGE_HEIGHT + IMAGE_GAP)
+    expect(photo.height).toBe(NODE_HEIGHT + IMAGE_HEIGHT + IMAGE_GAP)
+  })
+
+  it('tekst schodzi w dół o połowę pasa ze zdjęciem', () => {
+    const layout = layoutMap(withImage)
+    const photo = layout.nodes.find((n) => n.node.id === 'b')!
+    expect(photo.textY).toBeCloseTo(photo.y + photo.imageBlock / 2, 5)
+  })
+
+  it('węzeł jest co najmniej tak szeroki jak kadr', () => {
+    const layout = layoutMap([
+      { id: 'r', text: 'R', parentId: null },
+      { id: 'x', text: 'a', parentId: 'r', image: PIXEL },
+    ])
+    expect(layout.nodes.find((n) => n.node.id === 'x')!.width).toBeGreaterThanOrEqual(IMAGE_WIDTH)
+  })
+
+  it('podkreślenie trzyma się tekstu, nie środka węzła', () => {
+    const layout = layoutMap(withImage)
+    const photo = layout.nodes.find((n) => n.node.id === 'b')!
+    const link = layout.connectors.find((c) => c.id === 'r->b')!
+    const end = link.path.match(/L ([\d.-]+) ([\d.-]+)$/)!
+    expect(Number(end[2])).toBeCloseTo(photo.textY + UNDERLINE_OFFSET, 5)
+  })
+
+  it('wyższy węzeł nie wchodzi na sąsiada', () => {
+    const layout = layoutMap(withImage)
+    const plain = layout.nodes.find((n) => n.node.id === 'a')!
+    const photo = layout.nodes.find((n) => n.node.id === 'b')!
+    const gap = Math.abs(plain.y - photo.y) - (plain.height + photo.height) / 2
+    expect(gap).toBeGreaterThanOrEqual(0)
   })
 })
 

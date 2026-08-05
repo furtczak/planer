@@ -6,6 +6,7 @@ import {
   IconClose,
   IconCollapse,
   IconExpand,
+  IconImage,
   IconNote,
   IconPalette,
   IconPin,
@@ -14,6 +15,7 @@ import {
   IconTrash,
 } from '../components/Icons'
 import { childrenOf, findRoot } from '../lib/mapLayout'
+import { fileToScaledDataUrl } from '../lib/image'
 import type { BranchColor, MindMap } from '../types'
 import { BRANCH_COLORS } from '../types'
 
@@ -21,7 +23,7 @@ type Props = {
   map: MindMap
   onBack: () => void
   onAddNode: (parentId: string, nodeId: string, text?: string) => void
-  onUpdateNode: (nodeId: string, patch: { text?: string; note?: string }) => void
+  onUpdateNode: (nodeId: string, patch: { text?: string; note?: string; image?: string }) => void
   onRemoveNode: (nodeId: string) => void
   onToggleCollapse: (nodeId: string) => void
   onSetColor: (nodeId: string, color: BranchColor) => void
@@ -48,6 +50,7 @@ export function MapEditorScreen({
   const [showColors, setShowColors] = useState(false)
   const [noteOpen, setNoteOpen] = useState(false)
   const textRef = useRef<HTMLInputElement>(null)
+  const imageInput = useRef<HTMLInputElement>(null)
 
   const root = useMemo(() => findRoot(map.nodes), [map.nodes])
   const selected = map.nodes.find((n) => n.id === selectedId) ?? null
@@ -93,6 +96,20 @@ export function MapEditorScreen({
   const addSibling = () => {
     if (!selected?.parentId) return
     addChild(selected.parentId)
+  }
+
+  const pickImage = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    const nodeId = selectedId
+    event.target.value = ''
+    if (!file || !nodeId) return
+
+    const result = await fileToScaledDataUrl(file)
+    if (!result.ok) {
+      window.alert(result.error)
+      return
+    }
+    onUpdateNode(nodeId, { image: result.dataUrl })
   }
 
   return (
@@ -161,6 +178,20 @@ export function MapEditorScreen({
             </button>
           </div>
 
+          {selected.image && (
+            <div className="sheet-image">
+              <img src={selected.image} alt="Zdjęcie węzła" />
+              <button
+                type="button"
+                className="icon-btn danger"
+                onClick={() => onUpdateNode(selected.id, { image: undefined })}
+                aria-label="Usuń zdjęcie"
+              >
+                <IconClose size={16} />
+              </button>
+            </div>
+          )}
+
           {noteOpen && (
             <textarea
               className="sheet-note"
@@ -199,6 +230,14 @@ export function MapEditorScreen({
                 Obok
               </button>
             )}
+            <button
+              type="button"
+              className={`sheet-btn${selected.image ? ' is-on' : ''}`}
+              onClick={() => imageInput.current?.click()}
+            >
+              <IconImage size={18} />
+              Zdjęcie
+            </button>
             <button
               type="button"
               className={`sheet-btn${noteOpen ? ' is-on' : ''}`}
@@ -261,6 +300,14 @@ export function MapEditorScreen({
           </button>
         </div>
       )}
+
+      <input
+        ref={imageInput}
+        type="file"
+        accept="image/*"
+        className="hidden-input"
+        onChange={pickImage}
+      />
     </div>
   )
 }

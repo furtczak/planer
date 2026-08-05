@@ -17,6 +17,7 @@ Na żywo: **https://furtczak.github.io/planer/**
 - zwijanie gałęzi z licznikiem ukrytych dzieci
 - 6 kolorów gałęzi, potomkowie dziedziczą kolor po swojej gałęzi
 - notatka doczepiona do węzła (kropka przy tekście oznacza, że coś tam jest)
+- zdjęcie w każdym węźle - z aparatu albo z galerii, skalowane przed zapisem
 - przeciąganie i zoom płótna, tytuł mapy zsynchronizowany z korzeniem
 - podgląd prawdziwej mapy na kafelku dokumentu i w wynikach wyszukiwania
 
@@ -51,6 +52,10 @@ a rodzic siedzi dokładnie na środku swoich dzieci. Gałąź to jedna ścieżka
 krzywa Béziera od rodzica do dziecka, zakończona poziomą kreską pod tekstem -
 stąd charakterystyczne podkreślenie.
 
+Węzeł ze zdjęciem dostaje nad tekstem pas o stałej wysokości, a jego środek
+przesuwa się tak, że cały blok zostaje symetryczny względem osi węzła - dzięki
+temu reszta układu (odstępy rodzeństwa, wyśrodkowanie rodzica) działa bez zmian.
+
 Szerokość tekstu mierzymy przez `canvas.measureText`, a w środowisku bez canvasu
 (testy) schodzimy na przybliżenie. Ten sam moduł rysuje edytor i miniatury,
 więc kafelek dokumentu pokazuje dokładnie tę mapę, która jest w środku.
@@ -76,6 +81,11 @@ Klucz w `localStorage`: `mind-notes:data:v2`, motyw osobno pod
 `mind-notes:theme`. Dane z wersji z samymi notatkami (`:v1`) wczytują się bez
 migracji ręcznej. Zapis jest odroczony o 300 ms, ale wymuszany przy zamykaniu
 karty, więc zmiana tuż przed odświeżeniem nie ginie.
+
+Zdjęcia trzymamy jako data URI, więc przed zapisem każdy plik jest skalowany do
+720 px dłuższego boku i kompresowany do JPEG (`src/lib/image.ts`). Kadr powyżej
+700 kB jest odrzucany, a przy wczytywaniu przyjmujemy wyłącznie osadzone obrazy
+rastrowe - żaden zewnętrzny adres ani SVG nie trafi do dokumentu.
 
 Wczytane dane są normalizowane: mapa bez korzenia dostaje go automatycznie,
 drugi korzeń ląduje pod pierwszym, a węzeł wskazujący nieistniejącego rodzica

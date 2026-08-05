@@ -1,5 +1,6 @@
 import type { AppData, BranchColor, MapNode, MindMap, Note } from '../types'
 import { BRANCH_COLORS } from '../types'
+import { isImageDataUrl } from './image'
 
 export const STORAGE_KEY = 'mind-notes:data:v2'
 export const LEGACY_KEY = 'mind-notes:data:v1'
@@ -29,6 +30,8 @@ function normalizeMapNode(raw: unknown, index: number): MapNode | null {
     color: BRANCH_COLORS.includes(color as BranchColor) ? (color as BranchColor) : undefined,
     collapsed: asBool(r.collapsed) || undefined,
     note: typeof r.note === 'string' && r.note ? r.note : undefined,
+    // dopuszczamy wyłącznie osadzony obraz - żaden zewnętrzny adres nie trafi do <image>
+    image: isImageDataUrl(r.image) ? r.image : undefined,
   }
 }
 

@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import {
+  IMAGE_HEIGHT,
+  IMAGE_WIDTH,
   UNDERLINE_OFFSET,
   fitViewBox,
   layoutMap,
@@ -27,6 +29,8 @@ export function MapCanvas({
 }: Props) {
   const layout = useMemo(() => layoutMap(nodes), [nodes])
   const viewBox = useMemo(() => fitViewBox(layout.bounds, padding), [layout.bounds, padding])
+  // identyfikatory przycinania muszą być unikalne - na stronie bywa kilka map naraz
+  const clipPrefix = useId()
 
   const [view, setView] = useState({ x: 0, y: 0, scale: 1 })
   const drag = useRef<{
@@ -103,6 +107,22 @@ export function MapCanvas({
       role={interactive ? 'tree' : 'img'}
       aria-label="Mapa myśli"
     >
+      <defs>
+        {layout.nodes
+          .filter((item) => item.node.image)
+          .map((item) => (
+            <clipPath key={item.node.id} id={`${clipPrefix}-${item.node.id}`}>
+              <rect
+                x={0}
+                y={-item.height / 2}
+                width={IMAGE_WIDTH}
+                height={IMAGE_HEIGHT}
+                rx={10}
+              />
+            </clipPath>
+          ))}
+      </defs>
+
       <g transform={`translate(${view.x} ${view.y}) scale(${view.scale})`}>
         {layout.connectors.map((c) => (
           <path key={c.id} className={`branch branch-${c.color}`} d={c.path} />
@@ -110,7 +130,23 @@ export function MapCanvas({
 
         {layout.nodes.map((item) => {
           const selected = item.node.id === selectedId
+          const textOffset = item.imageBlock / 2
+
+          const picture = item.node.image ? (
+            <image
+              className="node-image"
+              href={item.node.image}
+              x={0}
+              y={-item.height / 2}
+              width={IMAGE_WIDTH}
+              height={IMAGE_HEIGHT}
+              preserveAspectRatio="xMidYMid slice"
+              clipPath={`url(#${clipPrefix}-${item.node.id})`}
+            />
+          ) : null
+
           if (item.isRoot) {
+            const pillHeight = item.height - item.imageBlock
             return (
               <g
                 key={item.node.id}
@@ -118,14 +154,15 @@ export function MapCanvas({
                 transform={`translate(${item.x} ${item.y})`}
                 onClick={() => activate(item.node.id)}
               >
+                {picture}
                 <rect
                   x={0}
-                  y={-item.height / 2}
+                  y={textOffset - pillHeight / 2}
                   width={item.width}
-                  height={item.height}
+                  height={pillHeight}
                   rx={14}
                 />
-                <text x={item.width / 2} y={1} textAnchor="middle">
+                <text x={item.width / 2} y={textOffset + 1} textAnchor="middle">
                   {item.node.text || 'Bez tytułu'}
                 </text>
               </g>
@@ -147,16 +184,17 @@ export function MapCanvas({
                 height={item.height}
                 rx={9}
               />
-              <text x={0} y={0}>
+              {picture}
+              <text x={0} y={textOffset}>
                 {item.node.text || 'Nowy węzeł'}
               </text>
               {item.node.note && (
-                <circle className="note-dot" cx={item.width + 8} cy={-7} r={2.6} />
+                <circle className="note-dot" cx={item.width + 8} cy={textOffset - 7} r={2.6} />
               )}
               {item.hasHiddenChildren && (
                 <g
                   className="collapsed-badge"
-                  transform={`translate(${item.width + 16} ${UNDERLINE_OFFSET})`}
+                  transform={`translate(${item.width + 16} ${textOffset + UNDERLINE_OFFSET})`}
                   onClick={(e) => {
                     e.stopPropagation()
                     onToggleCollapse?.(item.node.id)

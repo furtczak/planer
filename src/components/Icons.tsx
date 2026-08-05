@@ -192,6 +192,14 @@ export const IconPin = (p: IconProps) => (
   </svg>
 )
 
+export const IconImage = (p: IconProps) => (
+  <svg {...svgProps(p)}>
+    <rect x="3.5" y="5" width="17" height="14" rx="3" />
+    <circle cx="8.5" cy="10" r="1.5" />
+    <path d="m4.5 17 4.2-4.2a2 2 0 0 1 2.8 0l2.2 2.2m0 0 1.6-1.6a2 2 0 0 1 2.8 0l1.4 1.4m-5.8.2 2 2" />
+  </svg>
+)
+
 export const IconFit = (p: IconProps) => (
   <svg {...svgProps(p)}>
     <path d="M4 9V5.5A1.5 1.5 0 0 1 5.5 4H9M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15" />

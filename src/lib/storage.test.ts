@@ -90,6 +90,30 @@ describe('normalizeData', () => {
     expect(nodes.find((n) => n.id === 'b')?.color).toBe('mint')
   })
 
+  it('przyjmuje zdjęcie tylko jako osadzony data URI', () => {
+    const data = normalizeData({
+      maps: [
+        {
+          id: 'm1',
+          title: 'Zdjęcia',
+          nodes: [
+            { id: 'r', text: 'R', parentId: null },
+            { id: 'ok', text: 'OK', parentId: 'r', image: 'data:image/png;base64,AAAA' },
+            { id: 'zdalne', text: 'Zdalne', parentId: 'r', image: 'https://example.com/x.png' },
+            { id: 'skrypt', text: 'Skrypt', parentId: 'r', image: 'javascript:alert(1)' },
+            { id: 'svg', text: 'SVG', parentId: 'r', image: 'data:image/svg+xml;base64,AAAA' },
+          ],
+        },
+      ],
+    })
+    const at = (id: string) => data?.maps[0].nodes.find((n) => n.id === id)
+    expect(at('ok')?.image).toBe('data:image/png;base64,AAAA')
+    expect(at('zdalne')?.image).toBeUndefined()
+    expect(at('skrypt')?.image).toBeUndefined()
+    // SVG potrafi nieść skrypt, więc nie wpuszczamy go do <image>
+    expect(at('svg')?.image).toBeUndefined()
+  })
+
   it('normalizuje tagi notatki do małych liter bez duplikatów', () => {
     const data = normalizeData({ notes: [{ id: 'a', tags: ['Dom', 'dom', 7, 'Praca'] }] })
     expect(data?.notes[0].tags).toEqual(['dom', 'praca'])

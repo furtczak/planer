@@ -672,6 +672,38 @@ textarea {
   font-family: inherit;
 }
 
+.sheet-image {
+  position: relative;
+  align-self: flex-start;
+  width: 132px;
+  margin-top: 10px;
+}
+
+.sheet-image img {
+  display: block;
+  width: 132px;
+  height: 99px;
+  object-fit: cover;
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+.sheet-image .icon-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.node-image {
+  /* obraz jest przycięty do zaokrąglonego kadru przez clipPath w MapCanvas */
+  pointer-events: none;
+}
+
 .swatch-row {
   display: flex;
   gap: 10px;
