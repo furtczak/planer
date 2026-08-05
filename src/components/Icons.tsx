@@ -1,19 +1,46 @@
 type IconProps = { size?: number; className?: string }
 
-function svgProps({ size = 18, className }: IconProps) {
+function svgProps({ size = 20, className }: IconProps) {
   return {
     width: size,
     height: size,
     viewBox: '0 0 24 24',
     fill: 'none',
     stroke: 'currentColor',
-    strokeWidth: 1.8,
+    strokeWidth: 1.9,
     strokeLinecap: 'round' as const,
     strokeLinejoin: 'round' as const,
     className,
     'aria-hidden': true,
   }
 }
+
+export const IconBack = (p: IconProps) => (
+  <svg {...svgProps(p)}>
+    <path d="M15 5l-7 7 7 7" />
+  </svg>
+)
+
+export const IconChevron = (p: IconProps) => (
+  <svg {...svgProps(p)}>
+    <path d="M9 5l7 7-7 7" />
+  </svg>
+)
+
+export const IconCompose = (p: IconProps) => (
+  <svg {...svgProps(p)}>
+    <path d="M5 19h4l9.5-9.5a2.1 2.1 0 0 0-3-3L6 16v3Z" />
+    <path d="M14 6.5 17.5 10" />
+  </svg>
+)
+
+export const IconMore = (p: IconProps) => (
+  <svg {...svgProps(p)}>
+    <circle cx="5.5" cy="12" r="1.4" fill="currentColor" stroke="none" />
+    <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" />
+    <circle cx="18.5" cy="12" r="1.4" fill="currentColor" stroke="none" />
+  </svg>
+)
 
 export const IconSearch = (p: IconProps) => (
   <svg {...svgProps(p)}>
@@ -28,18 +55,26 @@ export const IconPlus = (p: IconProps) => (
   </svg>
 )
 
-export const IconPin = (p: IconProps) => (
+export const IconMaps = (p: IconProps) => (
   <svg {...svgProps(p)}>
-    <path d="M9 4h6l-1 6 3 3H7l3-3-1-6Z" />
-    <path d="M12 13v7" />
+    <rect x="3" y="9" width="7" height="6" rx="2" />
+    <rect x="15" y="4" width="6" height="5" rx="2" />
+    <rect x="15" y="15" width="6" height="5" rx="2" />
+    <path d="M10 12h2.5a1.5 1.5 0 0 0 1.5-1.5v-4M10 12h2.5a1.5 1.5 0 0 1 1.5 1.5v4" />
   </svg>
 )
 
-export const IconArchive = (p: IconProps) => (
+export const IconNote = (p: IconProps) => (
   <svg {...svgProps(p)}>
-    <rect x="3" y="4" width="18" height="4" rx="1" />
-    <path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8" />
-    <path d="M10 12h4" />
+    <rect x="4" y="3" width="16" height="18" rx="3" />
+    <path d="M8 8h8M8 12h8M8 16h5" />
+  </svg>
+)
+
+export const IconClock = (p: IconProps) => (
+  <svg {...svgProps(p)}>
+    <circle cx="12" cy="12" r="8.5" />
+    <path d="M12 7.5V12l3 2" />
   </svg>
 )
 
@@ -58,54 +93,56 @@ export const IconRestore = (p: IconProps) => (
   </svg>
 )
 
-export const IconFolder = (p: IconProps) => (
-  <svg {...svgProps(p)}>
-    <path d="M3 7a1 1 0 0 1 1-1h5l2 2h8a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7Z" />
-  </svg>
-)
-
-export const IconNotes = (p: IconProps) => (
-  <svg {...svgProps(p)}>
-    <rect x="4" y="3" width="16" height="18" rx="2" />
-    <path d="M8 8h8M8 12h8M8 16h5" />
-  </svg>
-)
-
 export const IconGrid = (p: IconProps) => (
   <svg {...svgProps(p)}>
-    <rect x="4" y="4" width="7" height="7" rx="1" />
-    <rect x="13" y="4" width="7" height="7" rx="1" />
-    <rect x="4" y="13" width="7" height="7" rx="1" />
-    <rect x="13" y="13" width="7" height="7" rx="1" />
+    <rect x="4" y="4" width="7" height="7" rx="2" />
+    <rect x="13" y="4" width="7" height="7" rx="2" />
+    <rect x="4" y="13" width="7" height="7" rx="2" />
+    <rect x="13" y="13" width="7" height="7" rx="2" />
   </svg>
 )
 
 export const IconList = (p: IconProps) => (
   <svg {...svgProps(p)}>
-    <path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" />
+    <path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01" />
   </svg>
 )
 
-export const IconMap = (p: IconProps) => (
+export const IconChild = (p: IconProps) => (
   <svg {...svgProps(p)}>
-    <circle cx="12" cy="12" r="3" />
-    <circle cx="5" cy="6" r="2" />
-    <circle cx="19" cy="7" r="2" />
-    <circle cx="18" cy="18" r="2" />
-    <path d="M10 10 6.5 7.5M14 11l3-2.5M14 14l2.7 2.7" />
+    <rect x="3" y="9.5" width="6" height="5" rx="2" />
+    <rect x="15" y="9.5" width="6" height="5" rx="2" />
+    <path d="M9 12h6" />
+    <path d="M18 6.5v2M18 15.5v2" />
   </svg>
 )
 
-export const IconSun = (p: IconProps) => (
+export const IconSibling = (p: IconProps) => (
   <svg {...svgProps(p)}>
-    <circle cx="12" cy="12" r="4" />
-    <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+    <rect x="4" y="3.5" width="16" height="5" rx="2" />
+    <rect x="4" y="15" width="16" height="5" rx="2" />
+    <path d="M12 10.5v3" />
   </svg>
 )
 
-export const IconMoon = (p: IconProps) => (
+export const IconPalette = (p: IconProps) => (
   <svg {...svgProps(p)}>
-    <path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z" />
+    <path d="M12 3.5a8.5 8.5 0 0 0 0 17c1.2 0 1.8-.8 1.8-1.7 0-1.2-1-1.6-1-2.6 0-.7.6-1.2 1.4-1.2h1.3a4 4 0 0 0 4-4c0-4-3.4-7.5-7.5-7.5Z" />
+    <circle cx="8" cy="10" r="1.1" fill="currentColor" stroke="none" />
+    <circle cx="12" cy="7.5" r="1.1" fill="currentColor" stroke="none" />
+    <circle cx="15.8" cy="10" r="1.1" fill="currentColor" stroke="none" />
+  </svg>
+)
+
+export const IconCollapse = (p: IconProps) => (
+  <svg {...svgProps(p)}>
+    <path d="M9 6 4.5 12 9 18M15 6l4.5 6-4.5 6" />
+  </svg>
+)
+
+export const IconExpand = (p: IconProps) => (
+  <svg {...svgProps(p)}>
+    <path d="M5 6l4.5 6L5 18M19 6l-4.5 6 4.5 6" />
   </svg>
 )
 
@@ -121,10 +158,16 @@ export const IconCheck = (p: IconProps) => (
   </svg>
 )
 
-export const IconTag = (p: IconProps) => (
+export const IconSun = (p: IconProps) => (
   <svg {...svgProps(p)}>
-    <path d="M4 12V5a1 1 0 0 1 1-1h7l8 8-8 8-8-8Z" />
-    <circle cx="8.5" cy="8.5" r="1.2" />
+    <circle cx="12" cy="12" r="4" />
+    <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+  </svg>
+)
+
+export const IconMoon = (p: IconProps) => (
+  <svg {...svgProps(p)}>
+    <path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z" />
   </svg>
 )
 
@@ -142,15 +185,15 @@ export const IconUpload = (p: IconProps) => (
   </svg>
 )
 
-export const IconMenu = (p: IconProps) => (
+export const IconPin = (p: IconProps) => (
   <svg {...svgProps(p)}>
-    <path d="M4 7h16M4 12h16M4 17h16" />
+    <path d="M9 4h6l-1 6 3 3H7l3-3-1-6Z" />
+    <path d="M12 13v7" />
   </svg>
 )
 
-export const IconSparkles = (p: IconProps) => (
+export const IconFit = (p: IconProps) => (
   <svg {...svgProps(p)}>
-    <path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6L12 3Z" />
-    <path d="M18.5 15.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8.8-2.2Z" />
+    <path d="M4 9V5.5A1.5 1.5 0 0 1 5.5 4H9M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15" />
   </svg>
 )

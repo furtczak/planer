@@ -1,17 +1,9 @@
-import type { AppData, Folder, Note } from '../types'
+import type { AppData, BranchColor, MapNode, MindMap, Note } from '../types'
+import { BRANCH_COLORS } from '../types'
 
-export const STORAGE_KEY = 'mind-notes:data:v1'
-export const DATA_VERSION = 1
-
-const COLORS = new Set([
-  'default',
-  'yellow',
-  'green',
-  'blue',
-  'purple',
-  'pink',
-  'orange',
-])
+export const STORAGE_KEY = 'mind-notes:data:v2'
+export const LEGACY_KEY = 'mind-notes:data:v1'
+export const DATA_VERSION = 2
 
 function asString(value: unknown, fallback = ''): string {
   return typeof value === 'string' ? value : fallback
@@ -25,29 +17,76 @@ function asBool(value: unknown): boolean {
   return value === true
 }
 
+function normalizeMapNode(raw: unknown, index: number): MapNode | null {
+  if (typeof raw !== 'object' || raw === null) return null
+  const r = raw as Record<string, unknown>
+  const id = asString(r.id) || `n-${index}`
+  const color = asString(r.color)
+  return {
+    id,
+    text: asString(r.text),
+    parentId: typeof r.parentId === 'string' ? r.parentId : null,
+    color: BRANCH_COLORS.includes(color as BranchColor) ? (color as BranchColor) : undefined,
+    collapsed: asBool(r.collapsed) || undefined,
+    note: typeof r.note === 'string' && r.note ? r.note : undefined,
+  }
+}
+
 /**
- * Dane z localStorage / importu mogą być dowolnego kształtu (stara wersja,
- * ręcznie edytowany plik), więc każdą notatkę doprowadzamy do pełnego typu.
+ * Mapa bez dokładnie jednego korzenia byłaby nie do wyrenderowania, więc
+ * naprawiamy strukturę: pierwszy korzeń zostaje, sieroty trafiają pod niego.
  */
-export function normalizeNote(raw: unknown, index = 0): Note | null {
+function normalizeMap(raw: unknown, index: number): MindMap | null {
   if (typeof raw !== 'object' || raw === null) return null
   const r = raw as Record<string, unknown>
   const now = Date.now()
-  const id = asString(r.id) || `note-${now}-${index}`
-  const color = asString(r.color, 'default')
+  const id = asString(r.id) || `m-${now}-${index}`
+  const title = asString(r.title, 'Mapa') || 'Mapa'
+
+  const parsed = Array.isArray(r.nodes)
+    ? r.nodes.map(normalizeMapNode).filter((n): n is MapNode => n !== null)
+    : []
+
+  const roots = parsed.filter((n) => n.parentId === null)
+  let nodes: MapNode[]
+
+  if (roots.length === 0) {
+    const root: MapNode = { id: `root-${id}`, text: title, parentId: null }
+    nodes = [root, ...parsed.map((n) => ({ ...n, parentId: n.parentId ?? root.id }))]
+  } else {
+    const rootId = roots[0].id
+    nodes = parsed.map((n) => (n.parentId === null && n.id !== rootId ? { ...n, parentId: rootId } : n))
+  }
+
+  const known = new Set(nodes.map((n) => n.id))
+  const rootId = nodes.find((n) => n.parentId === null)?.id ?? nodes[0].id
+  nodes = nodes.map((n) =>
+    n.parentId !== null && !known.has(n.parentId) ? { ...n, parentId: rootId } : n,
+  )
 
   return {
     id,
+    title,
+    emoji: asString(r.emoji, '🧠').slice(0, 4) || '🧠',
+    nodes,
+    pinned: asBool(r.pinned),
+    trashed: asBool(r.trashed),
+    createdAt: asNumber(r.createdAt, now),
+    updatedAt: asNumber(r.updatedAt, asNumber(r.createdAt, now)),
+  }
+}
+
+function normalizeNote(raw: unknown, index: number): Note | null {
+  if (typeof raw !== 'object' || raw === null) return null
+  const r = raw as Record<string, unknown>
+  const now = Date.now()
+  return {
+    id: asString(r.id) || `note-${now}-${index}`,
     title: asString(r.title),
     body: asString(r.body),
-    folderId: typeof r.folderId === 'string' ? r.folderId : null,
     tags: Array.isArray(r.tags)
       ? [...new Set(r.tags.filter((t): t is string => typeof t === 'string').map((t) => t.toLowerCase()))]
       : [],
-    color: (COLORS.has(color) ? color : 'default') as Note['color'],
-    pinned: asBool(r.pinned),
-    archived: asBool(r.archived),
-    trashed: asBool(r.trashed),
     checklist: Array.isArray(r.checklist)
       ? r.checklist
           .filter((i): i is Record<string, unknown> => typeof i === 'object' && i !== null)
@@ -57,48 +96,40 @@ export function normalizeNote(raw: unknown, index = 0): Note | null {
             done: asBool(i.done),
           }))
       : [],
+    pinned: asBool(r.pinned),
+    trashed: asBool(r.trashed),
     createdAt: asNumber(r.createdAt, now),
     updatedAt: asNumber(r.updatedAt, asNumber(r.createdAt, now)),
-  }
-}
-
-export function normalizeFolder(raw: unknown, index = 0): Folder | null {
-  if (typeof raw !== 'object' || raw === null) return null
-  const r = raw as Record<string, unknown>
-  const now = Date.now()
-  const name = asString(r.name).trim()
-  if (!name) return null
-  return {
-    id: asString(r.id) || `folder-${now}-${index}`,
-    name,
-    emoji: asString(r.emoji, '📁').slice(0, 4) || '📁',
-    createdAt: asNumber(r.createdAt, now),
   }
 }
 
 export function normalizeData(raw: unknown): AppData | null {
   if (typeof raw !== 'object' || raw === null) return null
   const r = raw as Record<string, unknown>
-  if (!Array.isArray(r.notes)) return null
+  if (!Array.isArray(r.maps) && !Array.isArray(r.notes)) return null
 
-  const folders = Array.isArray(r.folders)
-    ? r.folders.map(normalizeFolder).filter((f): f is Folder => f !== null)
-    : []
-  const folderIds = new Set(folders.map((f) => f.id))
-  const notes = r.notes
-    .map(normalizeNote)
-    .filter((n): n is Note => n !== null)
-    // notatka wskazująca na nieistniejący folder trafia do "bez folderu"
-    .map((n) => (n.folderId && !folderIds.has(n.folderId) ? { ...n, folderId: null } : n))
-
-  return { version: DATA_VERSION, notes, folders }
+  return {
+    version: DATA_VERSION,
+    maps: Array.isArray(r.maps)
+      ? r.maps.map(normalizeMap).filter((m): m is MindMap => m !== null)
+      : [],
+    notes: Array.isArray(r.notes)
+      ? r.notes.map(normalizeNote).filter((n): n is Note => n !== null)
+      : [],
+  }
 }
 
 export function loadData(): AppData | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return null
-    return normalizeData(JSON.parse(raw))
+    if (raw) return normalizeData(JSON.parse(raw))
+    // dane z poprzedniej wersji aplikacji: same notatki, bez map
+    const legacy = localStorage.getItem(LEGACY_KEY)
+    if (legacy) {
+      const parsed = normalizeData(JSON.parse(legacy))
+      if (parsed) return parsed
+    }
+    return null
   } catch {
     return null
   }

@@ -1,25 +1,34 @@
 # 🧠 Mind Notes
 
-Notatnik w przeglądarce: kafelki jak w Google Keep, checklisty, tagi, foldery
-i dodatkowo **widok mapy myśli**, który pokazuje wszystkie notatki jako
-promienisty graf wokół bieżącego widoku.
+Mobilna aplikacja do map myśli, z klasycznymi notatkami jako dodatkiem.
+Wygląd i sposób obsługi wzorowane na MindNode: dokumenty w kartach z podglądem
+mapy, pływające pigułki zamiast pasków narzędzi, gałęzie rysowane kolorową
+krzywą, która przechodzi w podkreślenie tekstu.
 
-Wszystko działa lokalnie - dane siedzą w `localStorage`, nie ma backendu,
-konta ani wysyłania czegokolwiek na zewnątrz.
+Wszystko działa lokalnie - dane siedzą w `localStorage`, bez backendu i konta.
 
-## Funkcje
+Na żywo: **https://furtczak.github.io/planer/**
 
-- **Notatki** - tytuł, treść w Markdownie, 7 kolorów, przypinanie, archiwum, kosz z przywracaniem
-- **Checklisty** - zadania w notatce, odhaczanie także bezpośrednio z kafelka, pasek postępu
-- **Foldery** - dodawanie, zmiana nazwy (dwuklik), usuwanie bez utraty notatek
-- **Tagi** - własne oraz wyłapywane z treści (`#praca`), chmura tagów z licznikami
-- **Wyszukiwarka** - po tytule, treści, tagach i zadaniach; wiele słów naraz
-- **Widoki** - kafelki, lista i mapa myśli (przeciąganie, zoom, klik w węzeł otwiera notatkę)
-- **Sortowanie** - ostatnio zmienione / ostatnio dodane / alfabetycznie
-- **Motyw jasny i ciemny** - domyślnie zgodny z ustawieniem systemu
-- **Eksport i import JSON** - kopia zapasowa i przenoszenie danych między przeglądarkami
-- **Skróty klawiszowe** - `n` nowa notatka, `/` wyszukiwarka, `Esc` zamknięcie edytora
-- **Responsywność** - na wąskim ekranie panel boczny chowa się pod przyciskiem menu
+## Co potrafi
+
+**Mapy myśli**
+- automatyczny układ gałęzi - nie trzeba niczego przesuwać ręcznie
+- dodawanie gałęzi i rodzeństwa, usuwanie z całym poddrzewem
+- zwijanie gałęzi z licznikiem ukrytych dzieci
+- 6 kolorów gałęzi, potomkowie dziedziczą kolor po swojej gałęzi
+- notatka doczepiona do węzła (kropka przy tekście oznacza, że coś tam jest)
+- przeciąganie i zoom płótna, tytuł mapy zsynchronizowany z korzeniem
+- podgląd prawdziwej mapy na kafelku dokumentu i w wynikach wyszukiwania
+
+**Notatki**
+- Markdown z podglądem, lista zadań, tagi
+
+**Reszta**
+- ekran główny z kartami: mapy, notatki, ostatnie, kosz
+- wyszukiwarka sięgająca do treści węzłów, nie tylko tytułów
+- kosz z przywracaniem, eksport i import JSON
+- motyw jasny i ciemny, domyślnie zgodny z ustawieniem systemu
+- na klawiaturze: `Tab` nowa gałąź, `Enter` gałąź obok, `Esc` wstecz
 
 ## Uruchomienie
 
@@ -28,46 +37,46 @@ npm install
 npm run dev      # http://localhost:5173
 ```
 
-Pozostałe polecenia:
-
 ```bash
 npm run build      # produkcyjny build do dist/
-npm run preview    # podgląd builda
 npm test           # testy jednostkowe (vitest)
 npm run typecheck  # sprawdzenie typów
 ```
 
-## Obsługiwany Markdown
+## Jak zbudowany jest układ mapy
 
-Nagłówki `#`/`##`/`###`, **pogrubienie**, *kursywa*, ~~przekreślenie~~, `kod`,
-bloki kodu ` ``` `, listy punktowane i numerowane, listy zadań `- [x]`,
-cytaty `>`, linia `---`, linki `[tekst](url)` oraz tagi `#tag`.
+`src/lib/mapLayout.ts` liczy pozycje węzłów i ścieżki gałęzi. Każdy węzeł zna
+wysokość swojego poddrzewa, więc rodzeństwo nigdy na siebie nie nachodzi,
+a rodzic siedzi dokładnie na środku swoich dzieci. Gałąź to jedna ścieżka SVG:
+krzywa Béziera od rodzica do dziecka, zakończona poziomą kreską pod tekstem -
+stąd charakterystyczne podkreślenie.
 
-Renderer jest własny i minimalny: treść notatki jest najpierw escapowana,
-więc HTML wpisany w notatkę nie trafia do dokumentu, a linki przepuszczamy
-tylko dla schematów `http`, `https` i `mailto`.
+Szerokość tekstu mierzymy przez `canvas.measureText`, a w środowisku bez canvasu
+(testy) schodzimy na przybliżenie. Ten sam moduł rysuje edytor i miniatury,
+więc kafelek dokumentu pokazuje dokładnie tę mapę, która jest w środku.
 
 ## Struktura
 
 ```
 src/
-├── components/     # Sidebar, Topbar, NoteCard, NoteEditor, MindMap, ikony
-├── hooks/          # useAppData (stan + zapis), useTheme
-├── lib/            # markdown, storage, daty, id, dane przykładowe
-├── store/          # reducer notatek, filtrowanie, liczniki
-├── types.ts
-├── styles.css
-└── main.tsx
+├── components/   # MapCanvas (płótno mapy), MapThumb, ikony
+├── screens/      # Home, Maps, Notes, MapEditor, NoteEditor
+├── hooks/        # useAppData (stan + zapis), useTheme
+├── lib/          # mapLayout, markdown, storage, daty, dane przykładowe
+├── store/        # appReducer - cała logika map i notatek
+└── styles.css
 ```
 
-Stan trzyma jeden reducer (`src/store/notesReducer.ts`) - jest czysty i pokryty
-testami razem z rendererem Markdown i normalizacją danych z `localStorage`
-(38 testów, `npm test`).
+Stan trzyma jeden czysty reducer (`src/store/appReducer.ts`), a układ mapy jest
+osobnym modułem bez Reacta - oba są pokryte testami (`npm test`).
 
 ## Dane
 
-Klucz w `localStorage`: `mind-notes:data:v1` (motyw osobno: `mind-notes:theme`).
-Zapis jest odroczony o 300 ms, więc pisanie w edytorze nie zapisuje przy każdym
-znaku. Dane wczytywane z dysku lub importu są normalizowane - uszkodzony wpis
-nie wywraca aplikacji, a notatka wskazująca na nieistniejący folder ląduje
-w "Bez folderu".
+Klucz w `localStorage`: `mind-notes:data:v2`, motyw osobno pod
+`mind-notes:theme`. Dane z wersji z samymi notatkami (`:v1`) wczytują się bez
+migracji ręcznej. Zapis jest odroczony o 300 ms, ale wymuszany przy zamykaniu
+karty, więc zmiana tuż przed odświeżeniem nie ginie.
+
+Wczytane dane są normalizowane: mapa bez korzenia dostaje go automatycznie,
+drugi korzeń ląduje pod pierwszym, a węzeł wskazujący nieistniejącego rodzica
+trafia pod korzeń - uszkodzony plik nie wywraca aplikacji.

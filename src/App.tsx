@@ -1,88 +1,50 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { MindMap } from './components/MindMap'
-import { NoteCard } from './components/NoteCard'
-import { NoteEditor } from './components/NoteEditor'
-import { Sidebar } from './components/Sidebar'
-import { Topbar } from './components/Topbar'
+import { useCallback, useRef, useState } from 'react'
+import { HomeScreen } from './screens/HomeScreen'
+import { MapEditorScreen } from './screens/MapEditorScreen'
+import { MapsScreen } from './screens/MapsScreen'
+import { NoteEditorScreen } from './screens/NoteEditorScreen'
+import { NotesScreen } from './screens/NotesScreen'
+import { MapThumb } from './components/MapThumb'
+import { IconClose, IconDownload, IconSearch, IconUpload } from './components/Icons'
 import { useAppData } from './hooks/useAppData'
 import { useTheme } from './hooks/useTheme'
-import { exportData, normalizeData } from './lib/storage'
 import { sampleData } from './lib/sample'
-import { selectNotes } from './store/notesReducer'
-import type { Filter, Note, SortMode, ViewMode } from './types'
+import { exportData, normalizeData } from './lib/storage'
+import { liveMaps, liveNotes, searchMaps, searchNotes } from './store/appReducer'
+import type { Screen } from './types'
 
-function filterTitle(filter: Filter, folderName: (id: string) => string): string {
-  switch (filter.kind) {
-    case 'pinned':
-      return 'Przypięte'
-    case 'archive':
-      return 'Archiwum'
-    case 'trash':
-      return 'Kosz'
-    case 'folder':
-      return folderName(filter.folderId)
-    case 'tag':
-      return `#${filter.tag}`
-    case 'all':
-    default:
-      return 'Wszystkie notatki'
-  }
+function freshId(prefix: string) {
+  return `${prefix}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
 }
 
 export default function App() {
   const { data, dispatch } = useAppData()
   const { theme, toggleTheme } = useTheme()
 
-  const [filter, setFilter] = useState<Filter>({ kind: 'all' })
-  const [query, setQuery] = useState('')
-  const [sort, setSort] = useState<SortMode>('updated')
-  const [view, setView] = useState<ViewMode>('grid')
-  const [openId, setOpenId] = useState<string | null>(null)
+  const [stack, setStack] = useState<Screen[]>([{ name: 'home' }])
   const [menuOpen, setMenuOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [query, setQuery] = useState('')
   const fileInput = useRef<HTMLInputElement>(null)
 
-  const visible = useMemo(
-    () => selectNotes(data.notes, filter, query, sort),
-    [data.notes, filter, query, sort],
+  const screen = stack[stack.length - 1]
+  const go = useCallback((next: Screen) => setStack((s) => [...s, next]), [])
+  const back = useCallback(
+    () => setStack((s) => (s.length > 1 ? s.slice(0, -1) : s)),
+    [],
   )
 
-  const openNote = data.notes.find((n) => n.id === openId) ?? null
-  const folderName = useCallback(
-    (id: string) => data.folders.find((f) => f.id === id)?.name ?? 'Folder',
-    [data.folders],
-  )
+  const newMap = () => {
+    const id = freshId('m-')
+    dispatch({ type: 'createMap', id })
+    go({ name: 'map', id })
+  }
 
-  const createNote = useCallback(() => {
-    const draft: Partial<Note> = {
-      folderId: filter.kind === 'folder' ? filter.folderId : null,
-      tags: filter.kind === 'tag' ? [filter.tag] : [],
-    }
-    const id = `n-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`
-    dispatch({ type: 'createNote', draft: { ...draft, id } })
-    setOpenId(id)
-    if (filter.kind === 'archive' || filter.kind === 'trash') setFilter({ kind: 'all' })
-  }, [dispatch, filter])
-
-  // skróty klawiszowe: "/" - szukaj, "n" - nowa notatka
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null
-      const typing =
-        target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)
-      if (typing || event.metaKey || event.ctrlKey || event.altKey) return
-
-      if (event.key === '/') {
-        event.preventDefault()
-        document.querySelector<HTMLInputElement>('[data-search-input]')?.focus()
-      }
-      if (event.key.toLowerCase() === 'n' && !openId) {
-        event.preventDefault()
-        createNote()
-      }
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [createNote, openId])
+  const newNote = () => {
+    const id = freshId('n-')
+    dispatch({ type: 'createNote', id })
+    go({ name: 'note', id })
+  }
 
   const handleExport = () => {
     const blob = new Blob([exportData(data)], { type: 'application/json' })
@@ -92,9 +54,10 @@ export default function App() {
     link.download = `mind-notes-${new Date().toISOString().slice(0, 10)}.json`
     link.click()
     URL.revokeObjectURL(url)
+    setMenuOpen(false)
   }
 
-  const handleImportFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     event.target.value = ''
     if (!file) return
@@ -104,147 +67,213 @@ export default function App() {
         window.alert('Nie rozpoznaję tego pliku - oczekuję eksportu z Mind Notes.')
         return
       }
-      if (window.confirm(`Zaimportować ${parsed.notes.length} notatek? Bieżące dane zostaną zastąpione.`)) {
+      if (window.confirm(`Zaimportować ${parsed.maps.length} map i ${parsed.notes.length} notatek? Bieżące dane zostaną zastąpione.`)) {
         dispatch({ type: 'load', data: parsed })
-        setFilter({ kind: 'all' })
+        setStack([{ name: 'home' }])
+        setMenuOpen(false)
       }
     } catch {
       window.alert('Nie udało się odczytać pliku JSON.')
     }
   }
 
-  const loadSample = () => {
-    if (window.confirm('Wczytać przykładowe notatki? Bieżące dane zostaną zastąpione.')) {
-      dispatch({ type: 'load', data: sampleData() })
-      setFilter({ kind: 'all' })
-    }
-  }
+  const openMap = data.maps.find((m) => m.id === (screen.name === 'map' ? screen.id : ''))
+  const openNote = data.notes.find((n) => n.id === (screen.name === 'note' ? screen.id : ''))
 
-  const title = filterTitle(filter, folderName)
+  const foundMaps = searchMaps(liveMaps(data), query)
+  const foundNotes = searchNotes(liveNotes(data), query)
 
   return (
     <div className="app">
-      <Sidebar
-        notes={data.notes}
-        folders={data.folders}
-        filter={filter}
-        onFilter={setFilter}
-        onAddFolder={(name) => dispatch({ type: 'addFolder', name })}
-        onRemoveFolder={(id) => {
-          dispatch({ type: 'removeFolder', id })
-          if (filter.kind === 'folder' && filter.folderId === id) setFilter({ kind: 'all' })
-        }}
-        onRenameFolder={(id, name) => dispatch({ type: 'renameFolder', id, name })}
-        onExport={handleExport}
-        onImport={() => fileInput.current?.click()}
-        onLoadSample={loadSample}
-        open={menuOpen}
-        onClose={() => setMenuOpen(false)}
-      />
-
-      <main className="main">
-        <Topbar
-          title={title}
-          count={visible.length}
-          query={query}
-          onQuery={setQuery}
-          view={view}
-          onView={setView}
-          sort={sort}
-          onSort={setSort}
+      {screen.name === 'home' && (
+        <HomeScreen
+          data={data}
           theme={theme}
           onToggleTheme={toggleTheme}
-          onNewNote={createNote}
+          onGo={go}
+          onNewMap={newMap}
+          onOpenSearch={() => setSearchOpen(true)}
           onOpenMenu={() => setMenuOpen(true)}
         />
+      )}
 
-        {filter.kind === 'trash' && visible.length > 0 && (
-          <div className="banner">
-            <span>Notatki w koszu można przywrócić lub usunąć na zawsze.</span>
+      {screen.name === 'maps' && (
+        <MapsScreen
+          data={data}
+          scope={screen.scope}
+          onBack={back}
+          onOpenMap={(id) => go({ name: 'map', id })}
+          onNewMap={newMap}
+          onRestoreMap={(id) => dispatch({ type: 'restoreMap', id })}
+          onDeleteMap={(id) => dispatch({ type: 'deleteMap', id })}
+          onRestoreNote={(id) => dispatch({ type: 'restoreNote', id })}
+          onDeleteNote={(id) => dispatch({ type: 'deleteNote', id })}
+        />
+      )}
+
+      {screen.name === 'notes' && (
+        <NotesScreen
+          data={data}
+          onBack={back}
+          onOpenNote={(id) => go({ name: 'note', id })}
+          onNewNote={newNote}
+        />
+      )}
+
+      {screen.name === 'map' &&
+        (openMap ? (
+          <MapEditorScreen
+            map={openMap}
+            onBack={back}
+            onAddNode={(parentId, nodeId, text) =>
+              dispatch({ type: 'addNode', mapId: openMap.id, parentId, nodeId, text })
+            }
+            onUpdateNode={(nodeId, patch) =>
+              dispatch({ type: 'updateNode', mapId: openMap.id, nodeId, patch })
+            }
+            onRemoveNode={(nodeId) => dispatch({ type: 'removeNode', mapId: openMap.id, nodeId })}
+            onToggleCollapse={(nodeId) =>
+              dispatch({ type: 'toggleCollapse', mapId: openMap.id, nodeId })
+            }
+            onSetColor={(nodeId, color) =>
+              dispatch({ type: 'setBranchColor', mapId: openMap.id, nodeId, color })
+            }
+            onTogglePin={() => dispatch({ type: 'togglePinMap', id: openMap.id })}
+            onTrash={() => dispatch({ type: 'trashMap', id: openMap.id })}
+          />
+        ) : (
+          <MissingScreen onBack={back} />
+        ))}
+
+      {screen.name === 'note' &&
+        (openNote ? (
+          <NoteEditorScreen
+            note={openNote}
+            onBack={back}
+            onPatch={(patch) => dispatch({ type: 'updateNote', id: openNote.id, patch })}
+            onTrash={() => dispatch({ type: 'trashNote', id: openNote.id })}
+            onAddChecklistItem={(text) =>
+              dispatch({ type: 'addChecklistItem', noteId: openNote.id, text })
+            }
+            onToggleChecklistItem={(itemId) =>
+              dispatch({ type: 'toggleChecklistItem', noteId: openNote.id, itemId })
+            }
+            onRemoveChecklistItem={(itemId) =>
+              dispatch({ type: 'removeChecklistItem', noteId: openNote.id, itemId })
+            }
+          />
+        ) : (
+          <MissingScreen onBack={back} />
+        ))}
+
+      {searchOpen && (
+        <div className="overlay" onClick={() => setSearchOpen(false)}>
+          <div className="search-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-row">
+              <IconSearch size={18} className="search-icon" />
+              <input
+                autoFocus
+                className="sheet-input"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Szukaj w mapach i notatkach"
+                aria-label="Szukaj"
+              />
+              <button
+                type="button"
+                className="icon-btn"
+                onClick={() => setSearchOpen(false)}
+                aria-label="Zamknij"
+              >
+                <IconClose size={18} />
+              </button>
+            </div>
+
+            <div className="search-results">
+              {query.trim() === '' && <p className="muted small">Wpisz frazę, żeby zobaczyć wyniki.</p>}
+              {query.trim() !== '' && foundMaps.length === 0 && foundNotes.length === 0 && (
+                <p className="muted small">Nic nie znalazłem.</p>
+              )}
+              {foundMaps.length > 0 && query.trim() !== '' && (
+                <div className="strip-scroll">
+                  {foundMaps.map((map) => (
+                    <MapThumb
+                      key={map.id}
+                      map={map}
+                      compact
+                      onOpen={() => {
+                        setSearchOpen(false)
+                        go({ name: 'map', id: map.id })
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+              {query.trim() !== '' &&
+                foundNotes.map((note) => (
+                  <button
+                    key={note.id}
+                    type="button"
+                    className="list-row"
+                    onClick={() => {
+                      setSearchOpen(false)
+                      go({ name: 'note', id: note.id })
+                    }}
+                  >
+                    <span className="row-emoji">📝</span>
+                    <span className="row-label">{note.title || 'Bez tytułu'}</span>
+                  </button>
+                ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {menuOpen && (
+        <div className="overlay" onClick={() => setMenuOpen(false)}>
+          <div className="menu-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-grip" />
+            <button type="button" className="list-row" onClick={handleExport}>
+              <span className="row-icon tone-indigo">
+                <IconDownload size={18} />
+              </span>
+              <span className="row-label">Eksport do pliku</span>
+            </button>
+            <button type="button" className="list-row" onClick={() => fileInput.current?.click()}>
+              <span className="row-icon tone-teal">
+                <IconUpload size={18} />
+              </span>
+              <span className="row-label">Import z pliku</span>
+            </button>
             <button
               type="button"
-              className="ghost-btn danger"
+              className="list-row"
               onClick={() => {
-                if (window.confirm('Opróżnić kosz? Tej operacji nie da się cofnąć.')) {
-                  dispatch({ type: 'emptyTrash' })
+                if (window.confirm('Wczytać przykładowe dane? Bieżące zostaną zastąpione.')) {
+                  dispatch({ type: 'load', data: sampleData() })
+                  setStack([{ name: 'home' }])
+                  setMenuOpen(false)
                 }
               }}
             >
-              Opróżnij kosz
+              <span className="row-icon tone-orange">🧠</span>
+              <span className="row-label">Wczytaj przykłady</span>
+            </button>
+            <button
+              type="button"
+              className="list-row"
+              onClick={() => {
+                if (window.confirm('Opróżnić kosz? Tej operacji nie da się cofnąć.')) {
+                  dispatch({ type: 'emptyTrash' })
+                  setMenuOpen(false)
+                }
+              }}
+            >
+              <span className="row-icon tone-grey">🗑️</span>
+              <span className="row-label">Opróżnij kosz</span>
             </button>
           </div>
-        )}
-
-        <section className="content">
-          {visible.length === 0 ? (
-            <div className="empty">
-              <p className="empty-icon">🧠</p>
-              <h2>{query ? 'Nic nie znalazłem' : 'Pusto tutaj'}</h2>
-              <p className="muted">
-                {query
-                  ? 'Spróbuj innej frazy albo wyczyść wyszukiwanie.'
-                  : 'Dodaj pierwszą notatkę - klawisz "n" też działa.'}
-              </p>
-              {!query && (
-                <button type="button" className="primary-btn" onClick={createNote}>
-                  Nowa notatka
-                </button>
-              )}
-            </div>
-          ) : view === 'map' ? (
-            <MindMap
-              notes={visible}
-              folders={data.folders}
-              rootLabel={title}
-              onOpenNote={setOpenId}
-            />
-          ) : (
-            <div className={view === 'grid' ? 'note-grid' : 'note-list'}>
-              {visible.map((note) => (
-                <NoteCard
-                  key={note.id}
-                  note={note}
-                  folderName={note.folderId ? folderName(note.folderId) : undefined}
-                  onOpen={() => setOpenId(note.id)}
-                  onTogglePin={() => dispatch({ type: 'toggleFlag', id: note.id, flag: 'pinned' })}
-                  onToggleArchive={() =>
-                    dispatch({ type: 'toggleFlag', id: note.id, flag: 'archived' })
-                  }
-                  onTrash={() => dispatch({ type: 'trashNote', id: note.id })}
-                  onRestore={() => dispatch({ type: 'restoreNote', id: note.id })}
-                  onDelete={() => dispatch({ type: 'deleteNote', id: note.id })}
-                  onToggleChecklistItem={(itemId) =>
-                    dispatch({ type: 'toggleChecklistItem', noteId: note.id, itemId })
-                  }
-                />
-              ))}
-            </div>
-          )}
-        </section>
-      </main>
-
-      {openNote && (
-        <NoteEditor
-          note={openNote}
-          folders={data.folders}
-          onPatch={(patch) => dispatch({ type: 'updateNote', id: openNote.id, patch })}
-          onClose={() => setOpenId(null)}
-          onTogglePin={() => dispatch({ type: 'toggleFlag', id: openNote.id, flag: 'pinned' })}
-          onToggleArchive={() => dispatch({ type: 'toggleFlag', id: openNote.id, flag: 'archived' })}
-          onTrash={() => dispatch({ type: 'trashNote', id: openNote.id })}
-          onAddChecklistItem={(text) =>
-            dispatch({ type: 'addChecklistItem', noteId: openNote.id, text })
-          }
-          onUpdateChecklistItem={(itemId, text) =>
-            dispatch({ type: 'updateChecklistItem', noteId: openNote.id, itemId, text })
-          }
-          onToggleChecklistItem={(itemId) =>
-            dispatch({ type: 'toggleChecklistItem', noteId: openNote.id, itemId })
-          }
-          onRemoveChecklistItem={(itemId) =>
-            dispatch({ type: 'removeChecklistItem', noteId: openNote.id, itemId })
-          }
-        />
+        </div>
       )}
 
       <input
@@ -252,8 +281,22 @@ export default function App() {
         type="file"
         accept="application/json,.json"
         className="hidden-input"
-        onChange={handleImportFile}
+        onChange={handleImport}
       />
+    </div>
+  )
+}
+
+function MissingScreen({ onBack }: { onBack: () => void }) {
+  return (
+    <div className="screen">
+      <div className="empty">
+        <p className="empty-icon">🤷</p>
+        <h2>Nie ma takiego dokumentu</h2>
+        <button type="button" className="primary-btn" onClick={onBack}>
+          Wróć
+        </button>
+      </div>
     </div>
   )
 }

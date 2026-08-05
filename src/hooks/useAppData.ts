@@ -1,7 +1,7 @@
 import { useEffect, useReducer, useRef } from 'react'
 import { loadData, saveData } from '../lib/storage'
 import { sampleData } from '../lib/sample'
-import { notesReducer } from '../store/notesReducer'
+import { appReducer } from '../store/appReducer'
 import type { AppData } from '../types'
 
 function initialState(): AppData {
@@ -10,19 +10,37 @@ function initialState(): AppData {
 
 /** Stan aplikacji + zapis do localStorage (odroczony, żeby nie pisać przy każdym znaku). */
 export function useAppData() {
-  const [data, dispatch] = useReducer(notesReducer, undefined, initialState)
+  const [data, dispatch] = useReducer(appReducer, undefined, initialState)
   const firstRender = useRef(true)
+  const latest = useRef(data)
+  latest.current = data
 
   useEffect(() => {
     if (firstRender.current) {
       firstRender.current = false
-      // pierwszy zapis od razu, żeby dane startowe przetrwały odświeżenie
       saveData(data)
       return
     }
     const timer = setTimeout(() => saveData(data), 300)
     return () => clearTimeout(timer)
   }, [data])
+
+  // zamknięcie karty albo przejście w tło nie może zgubić zmiany czekającej na zapis
+  useEffect(() => {
+    const flush = () => saveData(latest.current)
+    const onHidden = () => {
+      if (document.visibilityState === 'hidden') flush()
+    }
+    window.addEventListener('pagehide', flush)
+    window.addEventListener('beforeunload', flush)
+    document.addEventListener('visibilitychange', onHidden)
+    return () => {
+      window.removeEventListener('pagehide', flush)
+      window.removeEventListener('beforeunload', flush)
+      document.removeEventListener('visibilitychange', onHidden)
+      flush()
+    }
+  }, [])
 
   return { data, dispatch }
 }
